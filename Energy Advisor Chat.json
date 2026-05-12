@@ -1,0 +1,197 @@
+{
+  "name": "Energy Advisor Chat",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {
+          "inputPlaceholder": "Ask me for an energy-saving tip...",
+          "subtitle": "Get personalized energy-saving tips based on weather and electricity prices",
+          "title": "Energy Advisor 🌍"
+        }
+      },
+      "id": "5579b80a-afb0-4270-a704-2872b6c80eae",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        304
+      ],
+      "webhookId": "79de4a62-bba0-40ca-a678-1eae32dcc48e"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // 1. Get data from previous nodes\n  const weather = $('Get Kotka Weather').first().json;\n  const priceInfo = $('Get Finland Electricity Price').first().json;\n  const userMsg = $('Chat Trigger').first().json.chatInput || \"Check energy status\";\n\n  // 2. Extract price safely (based on Elering API structure)\n  const price = (priceInfo.data && priceInfo.data[0]) ? priceInfo.data[0].price : 0;\n\n  return {\n    chatInput: userMsg, // IMPORTANT: passes the user question to the Agent\n    city: \"Kotka\",\n    temperature: weather.temperature,\n    weatherDescription: weather.description,\n    electricityPrice: price,\n    recommendation: price > 100 ? \"High price, save energy.\" : \"Fair price, normal usage.\"\n  };\n} catch (e) {\n  // Fallback if something is not executed yet\n  return { \n    chatInput: \"Check status\",\n    info: \"System is initializing. Please click 'Test Workflow'.\" \n  };\n}"
+      },
+      "id": "6f8e3e55-ccd5-4ccf-86a7-9adf3b47016e",
+      "name": "Combine Weather & Price Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://dashboard.elering.ee/api/nps/price/FI/current",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "6c612c02-514f-4268-9cb2-b61a8cc552ae",
+      "name": "Get Finland Electricity Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        400
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are a professional energy advisor for Kotka. Based on the data: Temp: {{ $json.temperature }}°C, Weather: {{ $json.weatherDescription }}, Price: {{ $json.electricityPrice }} EUR/MWh. YOUR RESPONSE MUST BE 100% IN ENGLISH. Provide a concise and practical energy-saving tip."
+        }
+      },
+      "id": "083c6e50-177d-4fc9-aa30-0508fb6676c1",
+      "name": "Energy Advisor Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        912,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "51419ebd-c27a-4061-8ca3-75d41f5e0f04",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "temperature",
+              "value": 12,
+              "type": "number"
+            },
+            {
+              "id": "2",
+              "name": "humidity",
+              "value": 65,
+              "type": "number"
+            },
+            {
+              "id": "3",
+              "name": "description",
+              "value": "clear sky",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "88d58190-17bb-4efe-a84f-6bfabb20bb86",
+      "name": "Get Kotka Weather",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Finland Electricity Price",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Kotka Weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Weather & Price Data": {
+      "main": [
+        [
+          {
+            "node": "Energy Advisor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Energy Advisor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Kotka Weather": {
+      "main": [
+        [
+          {
+            "node": "Combine Weather & Price Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Finland Electricity Price": {
+      "main": [
+        [
+          {
+            "node": "Combine Weather & Price Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1411578a-c09f-4ac9-a6b1-35488f3276e7",
+  "meta": {
+    "instanceId": "420c1974431e64d13b6fc9b25bf7dcaea25a7db8a48bbc378431fa74be87965e"
+  },
+  "id": "xuzsNqKCzbCUNstK",
+  "tags": []
+}
